@@ -65,10 +65,12 @@ export default function AdminUsersPage() {
   const [searchResults, setSearchResults] = useState<Array<{id: string; email?: string; created_at?: string}>>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedUser, setSelectedUser] = useState<{id: string; email?: string; created_at?: string} | null>(null);
-  const [selectedRole, setSelectedRole] = useState<'admin' | 'super_admin'>('admin');
+  const [selectedRole, setSelectedRole] = useState<'user' | 'admin'>('admin');
   const [showPromoteModal, setShowPromoteModal] = useState(false);
+  const [showDemoteModal, setShowDemoteModal] = useState(false);
   const [filterRole, setFilterRole] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const { data: adminUsers, isLoading, error } = useQuery({
     queryKey: ['admin-users'],
@@ -106,6 +108,64 @@ export default function AdminUsersPage() {
 
     return filtered;
   }, [adminUsers, filterRole, sortBy]);
+
+  const handlePromoteUser = async (userId: string, role: 'user' | 'admin') => {
+    setIsProcessing(true);
+    try {
+      const response = await fetch('/api/admin/users/promote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, role })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to promote user');
+      }
+
+      // Refresh the users list
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      setShowPromoteModal(false);
+      setSelectedUser(null);
+      
+      alert(`User successfully promoted to ${role}!`);
+    } catch (error) {
+      console.error('Error promoting user:', error);
+      alert(`Error: ${error instanceof Error ? error.message : 'Failed to promote user'}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDemoteUser = async (userId: string) => {
+    setIsProcessing(true);
+    try {
+      const response = await fetch('/api/admin/users/demote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to demote user');
+      }
+
+      // Refresh the users list
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      setShowDemoteModal(false);
+      setSelectedUser(null);
+      
+      alert('User successfully demoted to regular user!');
+    } catch (error) {
+      console.error('Error demoting user:', error);
+      alert(`Error: ${error instanceof Error ? error.message : 'Failed to demote user'}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const handleSearch = async (email: string) => {
     setSearchEmail(email);
@@ -349,9 +409,9 @@ export default function AdminUsersPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Admin Users Management</h1>
+          <h1 className="text-3xl font-bold text-gray-900">All Users Management</h1>
           <p className="mt-1 text-sm text-gray-600">
-            Manage admin users and their roles. Only super admins can create and modify admin users.
+            View all users and manage their admin roles. Only super admins can promote/demote users.
           </p>
           {(() => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -379,7 +439,7 @@ export default function AdminUsersPage() {
           })()}
         </div>
         <div className="text-sm text-gray-500">
-          {filteredUsers.length} admin users
+          {filteredUsers.length} total users
         </div>
       </div>
 
@@ -540,7 +600,7 @@ export default function AdminUsersPage() {
             <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
             </svg>
-            <p className="mt-2 text-sm text-gray-500">No admin users found</p>
+            <p className="mt-2 text-sm text-gray-500">No users found</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-200">
@@ -563,14 +623,20 @@ export default function AdminUsersPage() {
                         <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
                           adminUser.role === 'super_admin' 
                             ? 'bg-purple-100 text-purple-800 border border-purple-200' 
-                            : 'bg-blue-100 text-blue-800 border border-blue-200'
+                            : adminUser.role === 'admin'
+                            ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                            : 'bg-gray-100 text-gray-800 border border-gray-200'
                         }`}>
-                          {adminUser.role === 'super_admin' ? 'Super Admin' : 'Admin'}
+                          {adminUser.role === 'super_admin' ? 'Super Admin' : 
+                           adminUser.role === 'admin' ? 'Admin' : 'User'}
                         </span>
                       </div>
                       <div className="flex items-center space-x-4 text-sm text-gray-500">
                         <p>ID: {adminUser.id.slice(0, 8)}...</p>
                         <p>Created: {new Date(adminUser.created_at).toLocaleDateString()}</p>
+                        {adminUser.user?.last_sign_in_at && (
+                          <p>Last Sign In: {new Date(adminUser.user.last_sign_in_at).toLocaleDateString()}</p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -605,28 +671,24 @@ export default function AdminUsersPage() {
                       
                       return (
                         <>
-                          {adminUser.role !== 'super_admin' && (
+                          {adminUser.role === 'user' && (
                             <button
-                              onClick={() => handleUpdateRole(adminUser.id, 'super_admin')}
-                              className="text-purple-600 hover:text-purple-800 text-sm font-medium px-3 py-1 rounded-md hover:bg-purple-50 transition-colors"
-                            >
-                              Make Super Admin
-                            </button>
-                          )}
-                          {adminUser.role !== 'admin' && (
-                            <button
-                              onClick={() => handleUpdateRole(adminUser.id, 'admin')}
-                              className="text-blue-600 hover:text-blue-800 text-sm font-medium px-3 py-1 rounded-md hover:bg-blue-50 transition-colors"
+                              onClick={() => handlePromoteUser(adminUser.id, 'admin')}
+                              disabled={isProcessing}
+                              className="text-blue-600 hover:text-blue-800 text-sm font-medium px-3 py-1 rounded-md hover:bg-blue-50 transition-colors disabled:opacity-50"
                             >
                               Make Admin
                             </button>
                           )}
-                          <button
-                            onClick={() => handleDemote(adminUser.id)}
-                            className="text-red-600 hover:text-red-800 text-sm font-medium px-3 py-1 rounded-md hover:bg-red-50 transition-colors"
-                          >
-                            Remove Admin
-                          </button>
+                          {adminUser.role === 'admin' && (
+                            <button
+                              onClick={() => handleDemoteUser(adminUser.id)}
+                              disabled={isProcessing}
+                              className="text-red-600 hover:text-red-800 text-sm font-medium px-3 py-1 rounded-md hover:bg-red-50 transition-colors disabled:opacity-50"
+                            >
+                              Demote to User
+                            </button>
+                          )}
                         </>
                       );
                     })()}

@@ -5,43 +5,30 @@ export async function GET() {
   try {
     const supabase = supabaseServer();
 
-    // Get admin users from admin_users table
-    const { data: adminUsers, error } = await supabase
-      .from('admin_users')
-      .select('*')
-      .order('created_at', { ascending: false });
+    // Use the new function to get all users with their admin status
+    const { data: allUsers, error } = await supabase.rpc('get_all_users');
 
     if (error) {
-      console.error('Error fetching admin users:', error);
-      return NextResponse.json({ error: 'Failed to fetch admin users' }, { status: 500 });
+      console.error('Error fetching all users:', error);
+      return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
     }
 
-    // Get real email addresses for each admin user
-    const adminUsersWithEmails = await Promise.all(
-      adminUsers.map(async (adminUser) => {
-        try {
-          const { data: userData } = await supabase.auth.admin.getUserById(adminUser.id);
-          return {
-            ...adminUser,
-            user: {
-              email: userData.user?.email || 'Unknown',
-              created_at: userData.user?.created_at || adminUser.created_at
-            }
-          };
-        } catch (error) {
-          console.error(`Error fetching user details for ${adminUser.id}:`, error);
-          return {
-            ...adminUser,
-            user: {
-              email: `User ${adminUser.id.slice(0, 8)}...`,
-              created_at: adminUser.created_at
-            }
-          };
-        }
-      })
-    );
+    // Transform the data to match the expected format
+    const usersWithAdminStatus = allUsers.map((user: any) => ({
+      id: user.id,
+      role: user.admin_role,
+      created_at: user.created_at,
+      updated_at: user.created_at, // Use created_at as updated_at for now
+      user: {
+        email: user.email,
+        full_name: user.full_name,
+        created_at: user.created_at,
+        last_sign_in_at: user.last_sign_in_at,
+        is_active: user.is_active
+      }
+    }));
 
-    return NextResponse.json({ adminUsers: adminUsersWithEmails });
+    return NextResponse.json({ adminUsers: usersWithAdminStatus });
   } catch (error) {
     console.error('Error in admin users API:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
