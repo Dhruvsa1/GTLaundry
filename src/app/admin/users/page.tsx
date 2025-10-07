@@ -5,33 +5,37 @@ import { supabaseBrowser } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 
 async function fetchAdminUsers() {
-  try {
-    const response = await fetch('/api/admin/users/list');
-    if (!response.ok) {
-      throw new Error('Failed to fetch admin users');
-    }
-    const data = await response.json();
-    return data.adminUsers || [];
-  } catch (error) {
-    console.error('Error fetching admin users:', error);
-    // Fallback to direct database query
-    const supabase = supabaseBrowser();
-    const { data, error: dbError } = await supabase
-      .from('admin_users')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (dbError) throw dbError;
-    
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return data?.map((adminUser: any) => ({
-      ...adminUser,
-      user: {
-        email: `User ${adminUser.id.slice(0, 8)}...`,
-        created_at: adminUser.created_at
-      }
-    })) || [];
+  // Query with the user's JWT context to satisfy auth.uid() checks
+  const supabase = supabaseBrowser();
+  const { data, error } = await supabase.rpc('get_all_users');
+  if (error) {
+    console.error('get_all_users RPC failed:', error);
+    throw new Error('Failed to fetch users');
   }
+  // Shape into the structure the UI expects
+  return (data || []).map((user: {
+    id: string;
+    email: string;
+    full_name: string | null;
+    avatar_url: string | null;
+    phone: string | null;
+    created_at: string;
+    last_sign_in_at: string | null;
+    is_active: boolean;
+    admin_role: 'user' | 'admin' | 'super_admin';
+    is_admin: boolean;
+  }) => ({
+    id: user.id,
+    role: user.admin_role,
+    created_at: user.created_at,
+    user: {
+      email: user.email,
+      full_name: user.full_name,
+      created_at: user.created_at,
+      last_sign_in_at: user.last_sign_in_at,
+      is_active: user.is_active,
+    },
+  }));
 }
 
 async function searchUsers(email: string) {
