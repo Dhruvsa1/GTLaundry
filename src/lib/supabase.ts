@@ -13,6 +13,10 @@ let browserClient: ReturnType<typeof createClient> | null = null;
 
 export const supabaseBrowser = () => {
   if (!browserClient) {
+    // Debug logging for production
+    console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
+    console.log('Supabase Key (first 20 chars):', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.substring(0, 20));
+    
     browserClient = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
