@@ -65,9 +65,8 @@ export default function AdminUsersPage() {
   const [searchResults, setSearchResults] = useState<Array<{id: string; email?: string; created_at?: string}>>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedUser, setSelectedUser] = useState<{id: string; email?: string; created_at?: string} | null>(null);
-  const [selectedRole, setSelectedRole] = useState<'user' | 'admin'>('admin');
+  const [selectedRole, setSelectedRole] = useState<'user' | 'admin' | 'super_admin'>('admin');
   const [showPromoteModal, setShowPromoteModal] = useState(false);
-  const [showDemoteModal, setShowDemoteModal] = useState(false);
   const [filterRole, setFilterRole] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -109,7 +108,7 @@ export default function AdminUsersPage() {
     return filtered;
   }, [adminUsers, filterRole, sortBy]);
 
-  const handlePromoteUser = async (userId: string, role: 'user' | 'admin') => {
+  const handlePromoteUser = async (userId: string, role: 'user' | 'admin' | 'super_admin') => {
     setIsProcessing(true);
     try {
       const response = await fetch('/api/admin/users/promote', {
@@ -155,7 +154,6 @@ export default function AdminUsersPage() {
 
       // Refresh the users list
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-      setShowDemoteModal(false);
       setSelectedUser(null);
       
       alert('User successfully demoted to regular user!');
@@ -191,7 +189,7 @@ export default function AdminUsersPage() {
     }
   };
 
-  const handlePromote = async (userId: string, role: 'admin' | 'super_admin') => {
+  const handlePromote = async (userId: string, role: 'user' | 'admin' | 'super_admin') => {
     if (!user) return;
 
     // Check if current user is super admin
@@ -245,148 +243,6 @@ export default function AdminUsersPage() {
     }
   };
 
-  const handleDemote = async (userId: string) => {
-    if (!user) return;
-
-    // Check if current user is super admin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const currentUserRole = adminUsers?.find((au: any) => au.id === user.id)?.role;
-    if (currentUserRole !== 'super_admin') {
-      alert('Only super admins can demote other admins.');
-      return;
-    }
-
-    // Check if trying to demote self
-    if (userId === user.id) {
-      alert("You cannot demote yourself!");
-      return;
-    }
-
-    // Check if trying to demote another super admin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const targetUser = adminUsers?.find((au: any) => au.id === userId);
-    if (targetUser?.role === 'super_admin') {
-      alert("You cannot demote another super admin!");
-      return;
-    }
-
-    if (!confirm("Are you sure you want to remove admin privileges from this user?")) {
-      return;
-    }
-
-    try {
-      const supabase = supabaseBrowser();
-      
-      // Get the current admin data for audit log
-      const { data: currentAdmin } = await supabase
-        .from('admin_users')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      // Delete from admin_users table
-      const { error: deleteError } = await supabase
-        .from('admin_users')
-        .delete()
-        .eq('id', userId);
-
-      if (deleteError) throw deleteError;
-
-      // Log the action in audit log
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: auditError } = await (supabase as any)
-        .from('admin_audit_log')
-        .insert({
-          admin_id: user.id,
-          action: 'demote_user',
-          target_type: 'user',
-          target_id: userId,
-          old_data: currentAdmin
-        });
-
-      if (auditError) console.error('Audit log error:', auditError);
-
-      // Refresh the data
-      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-      alert('User successfully demoted to regular user!');
-    } catch (error) {
-      console.error('Error demoting user:', error);
-      alert('Error demoting user. Please try again.');
-    }
-  };
-
-  const handleUpdateRole = async (userId: string, newRole: 'admin' | 'super_admin') => {
-    if (!user) return;
-
-    // Check if current user is super admin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const currentUserRole = adminUsers?.find((au: any) => au.id === user.id)?.role;
-    if (currentUserRole !== 'super_admin') {
-      alert('Only super admins can change user roles.');
-      return;
-    }
-
-    // Check if trying to modify self
-    if (userId === user.id) {
-      alert("You cannot change your own role!");
-      return;
-    }
-
-    // Check if trying to modify another super admin
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const targetUser = adminUsers?.find((au: any) => au.id === userId);
-    if (targetUser?.role === 'super_admin') {
-      alert("You cannot modify another super admin's role!");
-      return;
-    }
-
-    if (!confirm(`Are you sure you want to change this user's role to ${newRole === 'super_admin' ? 'Super Admin' : 'Admin'}?`)) {
-      return;
-    }
-
-    try {
-      const supabase = supabaseBrowser();
-      
-      // Get the current admin data for audit log
-      const { data: currentAdmin } = await supabase
-        .from('admin_users')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      // Update the role
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: updateError } = await (supabase as any)
-        .from('admin_users')
-        .update({ role: newRole })
-        .eq('id', userId);
-
-      if (updateError) throw updateError;
-
-      // Log the action in audit log
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: auditError } = await (supabase as any)
-        .from('admin_audit_log')
-        .insert({
-          admin_id: user.id,
-          action: 'update_user_role',
-          target_type: 'user',
-          target_id: userId,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          old_data: { role: (currentAdmin as any)?.role },
-          new_data: { role: newRole }
-        });
-
-      if (auditError) console.error('Audit log error:', auditError);
-
-      // Refresh the data
-      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-      alert(`User role successfully updated to ${newRole === 'super_admin' ? 'Super Admin' : 'Admin'}!`);
-    } catch (error) {
-      console.error('Error updating user role:', error);
-      alert('Error updating user role. Please try again.');
-    }
-  };
 
   if (isLoading) {
     return (

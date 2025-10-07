@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     const supabase = supabaseServer();
 
     // Use the database function to demote user
-    const { data, error } = await supabase.rpc('demote_admin_to_user', {
+    const { error } = await supabase.rpc('demote_admin_to_user', {
       target_user_id: userId
     });
 

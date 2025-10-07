@@ -14,7 +14,18 @@ export async function GET() {
     }
 
     // Transform the data to match the expected format
-    const usersWithAdminStatus = allUsers.map((user: any) => ({
+    const usersWithAdminStatus = allUsers.map((user: {
+      id: string;
+      email: string;
+      full_name: string | null;
+      avatar_url: string | null;
+      phone: string | null;
+      created_at: string;
+      last_sign_in_at: string | null;
+      is_active: boolean;
+      admin_role: string;
+      is_admin: boolean;
+    }) => ({
       id: user.id,
       role: user.admin_role,
       created_at: user.created_at,

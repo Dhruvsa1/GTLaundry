@@ -9,14 +9,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing userId or role' }, { status: 400 });
     }
 
-    if (!['user', 'admin'].includes(role)) {
-      return NextResponse.json({ error: 'Invalid role. Must be user or admin' }, { status: 400 });
+    if (!['user', 'admin', 'super_admin'].includes(role)) {
+      return NextResponse.json({ error: 'Invalid role. Must be user, admin, or super_admin' }, { status: 400 });
     }
 
     const supabase = supabaseServer();
 
     // Use the database function to promote user
-    const { data, error } = await supabase.rpc('promote_user_to_admin', {
+    const { error } = await supabase.rpc('promote_user_to_admin', {
       target_user_id: userId,
       new_role: role
     });
