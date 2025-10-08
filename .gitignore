@@ -104,8 +104,9 @@ jspm_packages/
 public/icons/gtllogo.png
 public/icons/gtlogo.png
 public/icons/*logo*.png
-# Allow base64 logo files
-!public/icons/*logo*.txt
+# Large base64 logo files (over 1MB) - store in Vercel environment variables instead
+public/icons/gtllogo.txt
+public/icons/*logo*.txt
 # Allow original icon files
 !public/icons/icon-*.png
 !public/icons/icon-*.svg
