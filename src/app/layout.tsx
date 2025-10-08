@@ -7,6 +7,11 @@ export const metadata: Metadata = {
   title: "Laundry Tracker",
   description: "Realtime campus laundry machine availability",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/icons/gtlogo.png",
+    shortcut: "/icons/gtlogo.png",
+    apple: "/icons/gtlogo.png",
+  },
 };
 
 export const viewport: Viewport = {
