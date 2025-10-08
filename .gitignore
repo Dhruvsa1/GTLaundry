@@ -100,8 +100,12 @@ jspm_packages/
 # Supabase
 .supabase/
 
-# Large logo files (over 1MB)
+# Large logo files (over 1MB) - use base64 instead
 public/icons/gtllogo.png
+public/icons/gtlogo.png
 public/icons/*logo*.png
-public/icons/*.png
+# Allow base64 logo files
+!public/icons/*logo*.txt
+# Allow original icon files
 !public/icons/icon-*.png
+!public/icons/icon-*.svg

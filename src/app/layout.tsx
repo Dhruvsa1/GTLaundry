@@ -8,9 +8,9 @@ export const metadata: Metadata = {
   description: "Realtime campus laundry machine availability",
   manifest: "/manifest.json",
   icons: {
-    icon: "/icons/gtlogo.png",
-    shortcut: "/icons/gtlogo.png",
-    apple: "/icons/gtlogo.png",
+    icon: process.env.NEXT_PUBLIC_LOGO_BASE64 || "/icons/icon-192.png",
+    shortcut: process.env.NEXT_PUBLIC_LOGO_BASE64 || "/icons/icon-192.png",
+    apple: process.env.NEXT_PUBLIC_LOGO_BASE64 || "/icons/icon-192.png",
   },
 };
 
