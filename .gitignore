@@ -99,3 +99,9 @@ jspm_packages/
 
 # Supabase
 .supabase/
+
+# Large logo files (over 1MB)
+public/icons/gtllogo.png
+public/icons/*logo*.png
+public/icons/*.png
+!public/icons/icon-*.png
